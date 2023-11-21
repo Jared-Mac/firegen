@@ -1,0 +1,19 @@
+#!/bin/bash 
+wget -nc -c -nd http://www.northwestknowledge.net/metdata/data/vs_2012.nc 
+wget -nc -c -nd http://www.northwestknowledge.net/metdata/data/vs_2013.nc 
+wget -nc -c -nd http://www.northwestknowledge.net/metdata/data/vs_2014.nc 
+wget -nc -c -nd http://www.northwestknowledge.net/metdata/data/vs_2015.nc 
+wget -nc -c -nd http://www.northwestknowledge.net/metdata/data/vs_2016.nc 
+wget -nc -c -nd http://www.northwestknowledge.net/metdata/data/vs_2017.nc 
+wget -nc -c -nd http://www.northwestknowledge.net/metdata/data/vs_2018.nc 
+wget -nc -c -nd http://www.northwestknowledge.net/metdata/data/vs_2019.nc 
+wget -nc -c -nd http://www.northwestknowledge.net/metdata/data/vs_2020.nc 
+wget -nc -c -nd http://www.northwestknowledge.net/metdata/data/th_2012.nc 
+wget -nc -c -nd http://www.northwestknowledge.net/metdata/data/th_2013.nc 
+wget -nc -c -nd http://www.northwestknowledge.net/metdata/data/th_2014.nc 
+wget -nc -c -nd http://www.northwestknowledge.net/metdata/data/th_2015.nc 
+wget -nc -c -nd http://www.northwestknowledge.net/metdata/data/th_2016.nc 
+wget -nc -c -nd http://www.northwestknowledge.net/metdata/data/th_2017.nc 
+wget -nc -c -nd http://www.northwestknowledge.net/metdata/data/th_2018.nc 
+wget -nc -c -nd http://www.northwestknowledge.net/metdata/data/th_2019.nc 
+wget -nc -c -nd http://www.northwestknowledge.net/metdata/data/th_2020.nc 
