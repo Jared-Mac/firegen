@@ -1,4 +1,5 @@
 Largefire
-.gpkg
+*.gpkg
 Weather
-.nc
+*.nc
+*.tif
