@@ -3,3 +3,4 @@ Largefire
 Weather
 *.nc
 *.tif
+__pycache__
