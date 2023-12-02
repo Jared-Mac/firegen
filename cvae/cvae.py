@@ -12,11 +12,12 @@ import pyro
 import pyro.distributions as dist
 from pyro.infer import SVI, Trace_ELBO
 
+input_size = 100352
 
 class Encoder(nn.Module):
     def __init__(self, z_dim, hidden_1, hidden_2):
         super().__init__()
-        self.fc1 = nn.Linear(784, hidden_1)
+        self.fc1 = nn.Linear(input_size, hidden_1)
         self.fc2 = nn.Linear(hidden_1, hidden_2)
         self.fc31 = nn.Linear(hidden_2, z_dim)
         self.fc32 = nn.Linear(hidden_2, z_dim)
@@ -26,10 +27,10 @@ class Encoder(nn.Module):
         # put x and y together in the same image for simplification
         xc = x.clone()
         if y is not None:
-            xc[x == -1] = y[x == -1]
-            xc = xc.view(-1, 784)
+            xc[x == -1] = y[x == -1] # combine the masked part of the target onto the masked part of the input
+            xc = xc.view(-1, input_size)
         else:
-            xc = xc.view(-1, 784)
+            xc = xc.view(-1, input_size)
         # then compute the hidden units
         hidden = self.relu(self.fc1(xc))
         hidden = self.relu(self.fc2(hidden))
@@ -45,7 +46,7 @@ class Decoder(nn.Module):
         super().__init__()
         self.fc1 = nn.Linear(z_dim, hidden_1)
         self.fc2 = nn.Linear(hidden_1, hidden_2)
-        self.fc3 = nn.Linear(hidden_2, 784)
+        self.fc3 = nn.Linear(hidden_2, input_size)
         self.relu = nn.ReLU()
 
     def forward(self, z):
@@ -81,7 +82,7 @@ class CVAE(nn.Module):
 
             if ys is not None:
                 # In training, we will only sample in the masked image
-                mask_loc = loc[(xs == -1).view(-1, 784)].view(batch_size, -1)
+                mask_loc = loc[(xs == -1).view(-1, input_size)].view(batch_size, -1)
                 mask_ys = ys[xs == -1].view(batch_size, -1)
                 pyro.sample(
                     "y",
@@ -138,18 +139,19 @@ def train(
         for phase in ["train", "val"]:
             running_loss = 0.0
             num_preds = 0
-
-            # Iterate over data.
+            
+            #Iterate over data.
             bar = tqdm(
                 dataloaders[phase],
                 desc="CVAE Epoch {} {}".format(epoch, phase).ljust(20),
             )
+            print(dataloaders[phase])
             for i, batch in enumerate(bar):
                 inputs = batch["input"].to(device)
                 outputs = batch["output"].to(device)
 
                 if phase == "train":
-                    loss = svi.step(inputs, outputs)
+                    loss = svi.step(inputs, outputs) # inputs and outputs go into the model and guide
                 else:
                     loss = svi.evaluate_loss(inputs, outputs)
 

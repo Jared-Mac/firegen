@@ -8,8 +8,16 @@ import pandas as pd
 import torch
 from util import generate_table, get_data, visualize
 
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+import fire
+
 import pyro
 
+#set default dtype
+torch.set_default_dtype(torch.float64)
 
 def main(args):
     device = torch.device("cuda:0") if torch.cuda.is_available() else "cpu"
@@ -17,52 +25,40 @@ def main(args):
     results = []
     columns = []
 
-    for num_quadrant_inputs in args.num_quadrant_inputs:
-        # adds an s in case of plural quadrants
-        maybes = "s" if num_quadrant_inputs > 1 else ""
+    # Dataset
+    datasets, dataloaders, dataset_sizes = fire.get_data("../data/frame_pairs.pt", batch_size=20)
 
-        print(
-            "Training with {} quadrant{} as input...".format(
-                num_quadrant_inputs, maybes
-            )
-        )
+    # Train CVAE
+    cvae_net = cvae.train(
+        device=device,
+        dataloaders=dataloaders,
+        dataset_sizes=dataset_sizes,
+        learning_rate=args.learning_rate,
+        num_epochs=args.num_epochs,
+        early_stop_patience=args.early_stop_patience,
+        model_path="cvae_net.pth",
+    )
 
-        # Dataset
-        datasets, dataloaders, dataset_sizes = get_data(
-            num_quadrant_inputs=num_quadrant_inputs, batch_size=128
-        )
+    # Visualize conditional predictions
+    visualize(
+        device=device,
+        num_quadrant_inputs=num_quadrant_inputs,
+        pre_trained_cvae=cvae_net,
+        num_images=args.num_images,
+        num_samples=args.num_samples,
+        image_path="cvae_plot.png",
+    )
 
-        # Train CVAE
-        cvae_net = cvae.train(
-            device=device,
-            dataloaders=dataloaders,
-            dataset_sizes=dataset_sizes,
-            learning_rate=args.learning_rate,
-            num_epochs=args.num_epochs,
-            early_stop_patience=args.early_stop_patience,
-            model_path="cvae_net_q{}.pth".format(num_quadrant_inputs),
-        )
-
-        # Visualize conditional predictions
-        visualize(
-            device=device,
-            num_quadrant_inputs=num_quadrant_inputs,
-            pre_trained_cvae=cvae_net,
-            num_images=args.num_images,
-            num_samples=args.num_samples,
-            image_path="cvae_plot_q{}.png".format(num_quadrant_inputs),
-        )
-
-        # Retrieve conditional log likelihood
-        df = generate_table(
-            device=device,
-            num_quadrant_inputs=num_quadrant_inputs,
-            pre_trained_cvae=cvae_net,
-            num_particles=args.num_particles,
-            col_name="{} quadrant{}".format(num_quadrant_inputs, maybes),
-        )
-        results.append(df)
-        columns.append("{} quadrant{}".format(num_quadrant_inputs, maybes))
+    # Retrieve conditional log likelihood
+    df = generate_table(
+        device=device,
+        num_quadrant_inputs=num_quadrant_inputs,
+        pre_trained_cvae=cvae_net,
+        num_particles=args.num_particles,
+        col_name="{} quadrant{}".format(num_quadrant_inputs, maybes),
+    )
+    results.append(df)
+    columns.append("{} quadrant{}".format(num_quadrant_inputs, maybes))
 
     results = pd.concat(results, axis=1, ignore_index=True)
     results.columns = columns
@@ -73,15 +69,6 @@ if __name__ == "__main__":
     assert pyro.__version__.startswith("1.8.6")
     # parse command line arguments
     parser = argparse.ArgumentParser(description="parse args")
-    parser.add_argument(
-        "-nq",
-        "--num-quadrant-inputs",
-        metavar="N",
-        type=int,
-        nargs="+",
-        default=[1, 2, 3],
-        help="num of quadrants to use as inputs",
-    )
     parser.add_argument(
         "-n", "--num-epochs", default=101, type=int, help="number of training epochs"
     )
