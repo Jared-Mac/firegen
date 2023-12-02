@@ -4,3 +4,4 @@ Weather
 *.nc
 *.tif
 __pycache__
+cvae_net.pth

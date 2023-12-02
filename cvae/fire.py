@@ -16,10 +16,10 @@ class firedata(Dataset):
 
     def __getitem__(self, index):
         # Assuming your data is in the form of lists or arrays
-        input_sample = torch.tensor(self.input_data[index], dtype=torch.float32)
-        output_sample = torch.tensor(self.output_data[index], dtype=torch.float32)
+        input_sample = self.input_data[index].clone().detach()
+        output_sample = self.output_data[index].clone().detach()
         
-        return {"input": input_sample, "output": output_sample}
+        return {"input": input_sample, "output": output_sample, "original": output_sample}
 
 
 class ToTensor:
@@ -73,6 +73,7 @@ def get_data(path, batch_size, train_percent=0.8):
             shuffle=True,
             num_workers=0,
         )
+        dataset_sizes[mode] = len(datasets[mode])
 
 
     return datasets, dataloaders, dataset_sizes

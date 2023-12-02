@@ -125,7 +125,7 @@ def train(
     # clear param store
     pyro.clear_param_store()
 
-    cvae_net = CVAE(200, 500, 500)
+    cvae_net = CVAE(200, 1000, 1000)
     cvae_net.to(device)
     optimizer = pyro.optim.Adam({"lr": learning_rate})
     svi = SVI(cvae_net.model, cvae_net.guide, optimizer, loss=Trace_ELBO())
@@ -145,7 +145,6 @@ def train(
                 dataloaders[phase],
                 desc="CVAE Epoch {} {}".format(epoch, phase).ljust(20),
             )
-            print(dataloaders[phase])
             for i, batch in enumerate(bar):
                 inputs = batch["input"].to(device)
                 outputs = batch["output"].to(device)

@@ -14,6 +14,8 @@ from tqdm import tqdm
 
 from pyro.infer import Predictive, Trace_ELBO
 
+import fire
+
 
 def imshow(inp, image_path=None):
     # plot images
@@ -38,16 +40,13 @@ def imshow(inp, image_path=None):
 
 def visualize(
     device,
-    num_quadrant_inputs,
     pre_trained_cvae,
     num_images,
     num_samples,
     image_path=None,
 ):
     # Load sample random data
-    datasets, _, dataset_sizes = get_data(
-        num_quadrant_inputs=num_quadrant_inputs, batch_size=num_images
-    )
+    datasets, _, dataset_sizes = fire.get_data("../data/frame_pairs.pt", batch_size=20)
     dataloader = DataLoader(datasets["val"], batch_size=num_images, shuffle=True)
 
     batch = next(iter(dataloader))
@@ -60,7 +59,7 @@ def visualize(
     predictive = Predictive(
         pre_trained_cvae.model, guide=pre_trained_cvae.guide, num_samples=num_samples
     )
-    cvae_preds = predictive(inputs)["y"].view(num_samples, num_images, 28, 28)
+    cvae_preds = predictive(inputs)["y"].view(num_samples, num_images, 224, 448)
 
     # Predictions are only made in the pixels not masked. This completes
     # the input quadrant with the prediction for the missing quadrants, for
@@ -71,11 +70,11 @@ def visualize(
     # adjust tensor sizes
     inputs = inputs.unsqueeze(1)
     inputs[inputs == -1] = 1
-    cvae_preds = cvae_preds.view(-1, 28, 28).unsqueeze(1)
+    cvae_preds = cvae_preds.view(-1, 224, 448).unsqueeze(1)
 
     # make grids
     inputs_tensor = make_grid(inputs, nrow=num_images, padding=0)
-    originals_tensor = make_grid(originals, nrow=num_images, padding=0)
+    originals_tensor = make_grid(originals.unsqueeze(1), nrow=num_images, padding=0)
     separator_tensor = torch.ones((3, 5, originals_tensor.shape[-1])).to(device)
     cvae_tensor = make_grid(cvae_preds, nrow=num_images, padding=0)
 
@@ -104,15 +103,12 @@ def visualize(
 
 def generate_table(
     device,
-    num_quadrant_inputs,
     pre_trained_cvae,
     num_particles,
     col_name,
 ):
     # Load sample random data
-    datasets, dataloaders, dataset_sizes = get_data(
-        num_quadrant_inputs=num_quadrant_inputs, batch_size=32
-    )
+    datasets, dataloaders, dataset_sizes = fire.get_data("../data/frame_pairs.pt", batch_size=20)
 
     # Load sample data
     loss_fn = Trace_ELBO(num_particles=num_particles).differentiable_loss

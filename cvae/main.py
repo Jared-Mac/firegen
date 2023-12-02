@@ -17,7 +17,8 @@ import fire
 import pyro
 
 #set default dtype
-torch.set_default_dtype(torch.float64)
+torch.set_default_dtype(torch.float32)
+pyro.set_rng_seed(1)
 
 def main(args):
     device = torch.device("cuda:0") if torch.cuda.is_available() else "cpu"
@@ -42,7 +43,6 @@ def main(args):
     # Visualize conditional predictions
     visualize(
         device=device,
-        num_quadrant_inputs=num_quadrant_inputs,
         pre_trained_cvae=cvae_net,
         num_images=args.num_images,
         num_samples=args.num_samples,
@@ -52,13 +52,12 @@ def main(args):
     # Retrieve conditional log likelihood
     df = generate_table(
         device=device,
-        num_quadrant_inputs=num_quadrant_inputs,
         pre_trained_cvae=cvae_net,
         num_particles=args.num_particles,
-        col_name="{} quadrant{}".format(num_quadrant_inputs, maybes),
+        col_name="fire",
     )
     results.append(df)
-    columns.append("{} quadrant{}".format(num_quadrant_inputs, maybes))
+    columns.append("fire")
 
     results = pd.concat(results, axis=1, ignore_index=True)
     results.columns = columns
@@ -76,7 +75,7 @@ if __name__ == "__main__":
         "-esp", "--early-stop-patience", default=3, type=int, help="early stop patience"
     )
     parser.add_argument(
-        "-lr", "--learning-rate", default=1.0e-3, type=float, help="learning rate"
+        "-lr", "--learning-rate", default=1.0e-5, type=float, help="learning rate"
     )
     parser.add_argument(
         "--cuda", action="store_true", default=False, help="whether to use cuda"
