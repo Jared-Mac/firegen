@@ -24,9 +24,9 @@ def imshow(inp, image_path=None):
     inp = np.concatenate([space, inp], axis=1)
 
     ax = plt.axes(frameon=False, xticks=[], yticks=[])
-    ax.text(0, 23, "Inputs:")
-    ax.text(0, 23 + 28 + 3, "Truth:")
-    ax.text(0, 23 + (28 + 3) * 3, "CVAE:")
+    ax.text(-300, 200, "Inputs:")
+    ax.text(-300, 200 + 224 + 3, "Truth:")
+    ax.text(-300, 200 + (224 + 3) * 3, "CVAE:")
     ax.imshow(inp)
 
     if image_path is not None:
@@ -72,19 +72,24 @@ def visualize(
     inputs[inputs == -1] = 1
     cvae_preds = cvae_preds.view(-1, 224, 448).unsqueeze(1)
 
+    # get only the right half of the predictions
+    inputs = inputs[:, :, :, :224]
+    originals = originals.unsqueeze(1)[:, :, :, 224:]
+    cvae_preds = cvae_preds[:, :, :, 224:]
+
     # make grids
     inputs_tensor = make_grid(inputs, nrow=num_images, padding=0)
-    originals_tensor = make_grid(originals.unsqueeze(1), nrow=num_images, padding=0)
+    originals_tensor = make_grid(originals, nrow=num_images, padding=0)
     separator_tensor = torch.ones((3, 5, originals_tensor.shape[-1])).to(device)
     cvae_tensor = make_grid(cvae_preds, nrow=num_images, padding=0)
 
     # add vertical and horizontal lines
     for tensor in [originals_tensor, cvae_tensor]:
         for i in range(num_images - 1):
-            tensor[:, :, (i + 1) * 28] = 0.3
+            tensor[:, :, (i + 1) * 224] = 0.3
 
     for i in range(num_samples - 1):
-        cvae_tensor[:, (i + 1) * 28, :] = 0.3
+        cvae_tensor[:, (i + 1) * 224, :] = 0.3
 
     # concatenate all tensors
     grid_tensor = torch.cat(

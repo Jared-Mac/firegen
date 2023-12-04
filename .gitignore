@@ -5,3 +5,4 @@ Weather
 *.tif
 __pycache__
 cvae_net.pth
+fire_frames_with_external_fata.*

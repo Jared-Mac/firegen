@@ -18,7 +18,7 @@ import pyro
 
 #set default dtype
 torch.set_default_dtype(torch.float32)
-pyro.set_rng_seed(1)
+pyro.set_rng_seed(0)
 
 def main(args):
     device = torch.device("cuda:0") if torch.cuda.is_available() else "cpu"
