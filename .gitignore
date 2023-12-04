@@ -4,5 +4,9 @@ Weather
 *.nc
 *.tif
 __pycache__
+<<<<<<< HEAD
 *.zip
 *.pkl
+=======
+cvae_net.pth
+>>>>>>> 6d7f6a68f0c831a6d83d8de3dc0709a3ea711170
