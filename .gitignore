@@ -4,3 +4,5 @@ Weather
 *.nc
 *.tif
 __pycache__
+*.zip
+*.pkl
