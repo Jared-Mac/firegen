@@ -3,8 +3,6 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms import Compose, functional
 
-from pyro.contrib.examples.util import MNIST
-
 
 class firedata(Dataset):
     def __init__(self, data_dict):
@@ -22,15 +20,6 @@ class firedata(Dataset):
         return {"input": input_sample, "output": output_sample, "original": output_sample}
 
 
-class ToTensor:
-    def __call__(self, sample):
-        sample["original"] = functional.to_tensor(sample["original"])
-        sample["digit"] = torch.as_tensor(
-            np.asarray(sample["digit"]), dtype=torch.int64
-        )
-        return sample
-
-
 class MaskImages:
     """Mask the right half of the input which contains the next step
     of the fire data with -1 and add the target output in the sample dict as the complementary of the input.
@@ -44,8 +33,8 @@ class MaskImages:
         out = tensor.detach().clone()
         N, h, w = tensor.shape
 
-        # removes the left half of the image from the target output
-        out[:, :, : w // 2] = self.mask_with
+        # removes the three left quadrants
+        out[:, :, : 3*h] = self.mask_with
 
         # now, sets the input as complementary
         inp = tensor.clone()
@@ -58,6 +47,8 @@ class MaskImages:
 
 def get_data(path, batch_size, train_percent=0.8):
     frames = torch.load(path)
+    # shuffle the frames
+    frames = frames[torch.randperm(frames.shape[0])]
     mask = MaskImages()
     masked_frames = mask(frames)
     num_train_samples = int(train_percent*masked_frames["input"].shape[0])
