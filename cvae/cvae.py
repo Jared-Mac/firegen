@@ -1,6 +1,3 @@
-# Copyright Contributors to the Pyro project.
-# SPDX-License-Identifier: Apache-2.0
-
 from pathlib import Path
 
 import numpy as np
@@ -12,12 +9,11 @@ import pyro
 import pyro.distributions as dist
 from pyro.infer import SVI, Trace_ELBO
 
-input_size = 100352
-
 class Encoder(nn.Module):
-    def __init__(self, z_dim, hidden_1, hidden_2):
+    def __init__(self, input_dim, z_dim, hidden_1, hidden_2):
         super().__init__()
-        self.fc1 = nn.Linear(input_size, hidden_1)
+        self.input_dim = input_dim
+        self.fc1 = nn.Linear(input_dim, hidden_1)
         self.fc2 = nn.Linear(hidden_1, hidden_2)
         self.fc31 = nn.Linear(hidden_2, z_dim)
         self.fc32 = nn.Linear(hidden_2, z_dim)
@@ -28,9 +24,9 @@ class Encoder(nn.Module):
         xc = x.clone()
         if y is not None:
             xc[x == -1] = y[x == -1] # combine the masked part of the target onto the masked part of the input
-            xc = xc.view(-1, input_size)
+            xc = xc.view(-1, self.input_dim)
         else:
-            xc = xc.view(-1, input_size)
+            xc = xc.view(-1, self.input_dim)
         # then compute the hidden units
         hidden = self.relu(self.fc1(xc))
         hidden = self.relu(self.fc2(hidden))
@@ -42,11 +38,11 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, z_dim, hidden_1, hidden_2):
+    def __init__(self, input_dim, z_dim, hidden_1, hidden_2):
         super().__init__()
         self.fc1 = nn.Linear(z_dim, hidden_1)
         self.fc2 = nn.Linear(hidden_1, hidden_2)
-        self.fc3 = nn.Linear(hidden_2, input_size)
+        self.fc3 = nn.Linear(hidden_2, input_dim)
         self.relu = nn.ReLU()
 
     def forward(self, z):
@@ -57,14 +53,15 @@ class Decoder(nn.Module):
 
 
 class CVAE(nn.Module):
-    def __init__(self, z_dim, hidden_1, hidden_2):
+    def __init__(self, input_dim, z_dim, hidden_1, hidden_2):
         super().__init__()
         # The CVAE is composed of multiple MLPs, such as recognition network
         # qφ(z|x, y), (conditional) prior network pθ(z|x), and generation
         # network pθ(y|x, z).
-        self.prior_net = Encoder(z_dim, hidden_1, hidden_2)
-        self.generation_net = Decoder(z_dim, hidden_1, hidden_2)
-        self.recognition_net = Encoder(z_dim, hidden_1, hidden_2)
+        self.input_dim = input_dim
+        self.prior_net = Encoder(input_dim, z_dim, hidden_1, hidden_2)
+        self.generation_net = Decoder(input_dim, z_dim, hidden_1, hidden_2)
+        self.recognition_net = Encoder(input_dim, z_dim, hidden_1, hidden_2)
 
     def model(self, xs, ys=None):
         # register this pytorch module and all of its sub-modules with pyro
@@ -82,7 +79,7 @@ class CVAE(nn.Module):
 
             if ys is not None:
                 # In training, we will only sample in the masked image
-                mask_loc = loc[(xs == -1).view(-1, input_size)].view(batch_size, -1)
+                mask_loc = loc[(xs == -1).view(-1, self.input_dim)].view(batch_size, -1)
                 mask_ys = ys[xs == -1].view(batch_size, -1)
                 pyro.sample(
                     "y",
@@ -115,6 +112,7 @@ class CVAE(nn.Module):
 
 def train(
     device,
+    input_size,
     dataloaders,
     dataset_sizes,
     learning_rate,
@@ -125,7 +123,9 @@ def train(
     # clear param store
     pyro.clear_param_store()
 
-    cvae_net = CVAE(200, 1000, 1000)
+    input_dim = 4*input_size**2
+
+    cvae_net = CVAE(input_dim, 1000, 3000, 3000)
     cvae_net.to(device)
     optimizer = pyro.optim.Adam({"lr": learning_rate})
     svi = SVI(cvae_net.model, cvae_net.guide, optimizer, loss=Trace_ELBO())

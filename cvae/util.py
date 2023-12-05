@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
-from mnist import get_data
 from torch.utils.data import DataLoader
 from torchvision.utils import make_grid
 from tqdm import tqdm
@@ -16,17 +15,16 @@ from pyro.infer import Predictive, Trace_ELBO
 
 import fire
 
-
-def imshow(inp, image_path=None):
+def imshow(inp, input_size, image_path=None):
     # plot images
     inp = inp.cpu().numpy().transpose((1, 2, 0))
     space = np.ones((inp.shape[0], 50, inp.shape[2]))
     inp = np.concatenate([space, inp], axis=1)
 
     ax = plt.axes(frameon=False, xticks=[], yticks=[])
-    ax.text(0, 23, "Inputs:")
-    ax.text(0, 23 + 28 + 3, "Truth:")
-    ax.text(0, 23 + (28 + 3) * 3, "CVAE:")
+    ax.text(-100, 200, "Inputs:")
+    ax.text(-100, 100 + 3*input_size + 3, "Truth:")
+    ax.text(-100, 400 + 3*input_size + 3, "CVAE:")
     ax.imshow(inp)
 
     if image_path is not None:
@@ -38,15 +36,17 @@ def imshow(inp, image_path=None):
     plt.clf()
 
 
-def visualize(
+def predict(
     device,
+    input_size,
     pre_trained_cvae,
     num_images,
     num_samples,
+    data_path,
     image_path=None,
 ):
     # Load sample random data
-    datasets, _, dataset_sizes = fire.get_data("../data/frame_pairs.pt", batch_size=20)
+    datasets, _, dataset_sizes = fire.get_data(data_path, batch_size=20)
     dataloader = DataLoader(datasets["val"], batch_size=num_images, shuffle=True)
 
     batch = next(iter(dataloader))
@@ -59,7 +59,7 @@ def visualize(
     predictive = Predictive(
         pre_trained_cvae.model, guide=pre_trained_cvae.guide, num_samples=num_samples
     )
-    cvae_preds = predictive(inputs)["y"].view(num_samples, num_images, 224, 448)
+    cvae_preds = predictive(inputs)["y"].view(num_samples, num_images, input_size, 4*input_size)
 
     # Predictions are only made in the pixels not masked. This completes
     # the input quadrant with the prediction for the missing quadrants, for
@@ -70,26 +70,37 @@ def visualize(
     # adjust tensor sizes
     inputs = inputs.unsqueeze(1)
     inputs[inputs == -1] = 1
-    cvae_preds = cvae_preds.view(-1, 224, 448).unsqueeze(1)
+    cvae_preds = cvae_preds.view(-1, input_size, 4*input_size).unsqueeze(1)
+
+    # get only the right half of the predictions
+    fire_inputs = inputs[:, :, :, :input_size]
+    wind_speed = inputs[:, :, :, input_size:2*input_size]
+    wind_direction = inputs[:, :, :, 2*input_size:3*input_size]
+    originals = originals.unsqueeze(1)[:, :, :, 3*input_size:]
+    cvae_preds = cvae_preds[:, :, :, 3*input_size:]
 
     # make grids
-    inputs_tensor = make_grid(inputs, nrow=num_images, padding=0)
-    originals_tensor = make_grid(originals.unsqueeze(1), nrow=num_images, padding=0)
+    inputs_tensor = make_grid(fire_inputs, nrow=num_images, padding=0)
+    wind_speed_tensor = make_grid(wind_speed, nrow=num_images, padding=0)
+    wind_direction_tensor = make_grid(wind_direction, nrow=num_images, padding=0)
+    originals_tensor = make_grid(originals, nrow=num_images, padding=0)
     separator_tensor = torch.ones((3, 5, originals_tensor.shape[-1])).to(device)
     cvae_tensor = make_grid(cvae_preds, nrow=num_images, padding=0)
 
     # add vertical and horizontal lines
     for tensor in [originals_tensor, cvae_tensor]:
         for i in range(num_images - 1):
-            tensor[:, :, (i + 1) * 28] = 0.3
+            tensor[:, :, (i + 1) * input_size] = 0.3
 
     for i in range(num_samples - 1):
-        cvae_tensor[:, (i + 1) * 28, :] = 0.3
+        cvae_tensor[:, (i + 1) * input_size, :] = 0.3
 
     # concatenate all tensors
     grid_tensor = torch.cat(
         [
             inputs_tensor,
+            wind_speed_tensor,
+            wind_direction_tensor,
             separator_tensor,
             originals_tensor,
             separator_tensor,
@@ -98,7 +109,7 @@ def visualize(
         dim=1,
     )
     # plot tensors
-    imshow(grid_tensor, image_path=image_path)
+    imshow(grid_tensor, input_size, image_path=image_path)
 
 
 def generate_table(
@@ -106,9 +117,10 @@ def generate_table(
     pre_trained_cvae,
     num_particles,
     col_name,
+    data_path,
 ):
     # Load sample random data
-    datasets, dataloaders, dataset_sizes = fire.get_data("../data/frame_pairs.pt", batch_size=20)
+    datasets, dataloaders, dataset_sizes = fire.get_data(data_path, batch_size=20)
 
     # Load sample data
     loss_fn = Trace_ELBO(num_particles=num_particles).differentiable_loss
