@@ -4,7 +4,8 @@ Weather
 *.nc
 *.tif
 __pycache__
-cvae_net.pth
+cvae_net*
+baseline_net*
 fire_frames_with_external_fata.*
 fire_frames_cropped.*
 data

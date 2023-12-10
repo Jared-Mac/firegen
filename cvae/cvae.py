@@ -69,14 +69,12 @@ class CVAE(nn.Module):
         batch_size = xs.shape[0]
         with pyro.plate("data"):
 
-            # sample the handwriting style from the prior distribution, which is
-            # modulated by the input xs.
             prior_loc, prior_scale = self.prior_net(xs)
             zs = pyro.sample("z", dist.Normal(prior_loc, prior_scale).to_event(1))
 
             # the output y is generated from the distribution pθ(y|x, z)
             loc = self.generation_net(zs)
-
+ 
             if ys is not None:
                 # In training, we will only sample in the masked image
                 mask_loc = loc[(xs == -1).view(-1, self.input_dim)].view(batch_size, -1)
@@ -113,6 +111,7 @@ class CVAE(nn.Module):
 def train(
     device,
     input_size,
+    z_dim,
     dataloaders,
     dataset_sizes,
     learning_rate,
@@ -125,7 +124,7 @@ def train(
 
     input_dim = 4*input_size**2
 
-    cvae_net = CVAE(input_dim, 1000, 3000, 3000)
+    cvae_net = CVAE(input_dim, z_dim, 1000, 1000)
     cvae_net.to(device)
     optimizer = pyro.optim.Adam({"lr": learning_rate})
     svi = SVI(cvae_net.model, cvae_net.guide, optimizer, loss=Trace_ELBO())
@@ -133,7 +132,7 @@ def train(
     best_loss = np.inf
     early_stop_count = 0
     Path(model_path).parent.mkdir(parents=True, exist_ok=True)
-
+    losses = {"train": [], "val": []}
     for epoch in range(num_epochs):
         # Each epoch has a training and validation phase
         for phase in ["train", "val"]:
@@ -162,6 +161,7 @@ def train(
                         loss="{:.2f}".format(running_loss / num_preds),
                         early_stop_count=early_stop_count,
                     )
+                    losses[phase].append(running_loss / num_preds)
 
             epoch_loss = running_loss / dataset_sizes[phase]
             # deep copy the model
@@ -179,4 +179,4 @@ def train(
     # Save model weights
     cvae_net.load_state_dict(torch.load(model_path))
     cvae_net.eval()
-    return cvae_net
+    return cvae_net, losses

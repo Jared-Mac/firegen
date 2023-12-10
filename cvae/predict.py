@@ -1,9 +1,10 @@
 import argparse
 
 from cvae import CVAE
+from baseline import BaselineNet
 import pandas as pd
 import torch
-from util import generate_table, predict
+from util import generate_table, visualize
 import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -24,33 +25,44 @@ def main(args):
     columns = []
 
     input_size = 128 # height of fire images
-    model_path = "cvae_net.pth"
+    input_dim = 4*input_size**2
+    cvae_model_path_100 = "cvae_net_z100.pth"
+    cvae_model_path_1000 = "cvae_net_z1000.pth"
+    baseline_model_path = "baseline_net.pth"
 
-    cvae_net = CVAE(4*input_size**2, 1000, 3000, 3000)
-    cvae_net.to(device)
-    cvae_net.load_state_dict(torch.load(model_path))
+    cvae_net_100 = CVAE(input_dim, 100, 1000, 1000).to(device)
+    cvae_net_100.load_state_dict(torch.load(cvae_model_path_100))
 
-    data_path = "../data/frame_pairs_with_external.pt"
+    cvae_net_1000 = CVAE(input_dim, 1000, 1000, 1000).to(device)
+    cvae_net_1000.load_state_dict(torch.load(cvae_model_path_1000))
+
+    baseline_net = BaselineNet(input_dim, 100, 100).to(device)
+    baseline_net.load_state_dict(torch.load(baseline_model_path))
+
+    data_path = "../data/cropped_frame_pairs_with_external.pt"
 
     # Visualize conditional predictions
-    predict(
+    visualize(
         device=device,
         input_size=input_size,
-        pre_trained_cvae=cvae_net,
+        pre_trained_baseline=baseline_net,
+        pre_trained_cvae=cvae_net_100,
         num_images=args.num_images,
         num_samples=args.num_samples,
         data_path=data_path,
         image_path="cvae_plot.png",
     )
-
     # Retrieve conditional log likelihood
     df = generate_table(
         device=device,
-        pre_trained_cvae=cvae_net,
+        pre_trained_baseline=baseline_net,
+        pre_trained_cvae_100=cvae_net_100,
+        pre_trained_cvae_1000=cvae_net_1000,
         num_particles=args.num_particles,
         col_name="fire",
-        data_path=data_path
+        data_path=data_path,
     )
+
     results.append(df)
     columns.append("fire")
 
@@ -65,14 +77,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "-vi",
         "--num-images",
-        default=10,
+        default=3,
         type=int,
         help="number of images to visualize",
     )
     parser.add_argument(
         "-vs",
         "--num-samples",
-        default=5,
+        default=3,
         type=int,
         help="number of samples to visualize per image",
     )
